@@ -71,6 +71,25 @@ SQLite event store · GitHub merges-to-`main` source · a `poll` command (run on
 cron) · a query API (`since` / `recent` / `all`). Topics, more sources, and
 real-time push are **out of scope for v1** — on purpose.
 
+## Usage
+
+```sh
+pip install -e .            # stdlib-only; nothing else to install
+
+# Ingest merges to main into a local SQLite store (idempotent — cron this):
+GITHUB_TOKEN=... beacon --db beacon.db poll --repo owner/name
+
+# Inspect the feed:
+beacon --db beacon.db recent --limit 20
+beacon --db beacon.db since 2026-06-01T00:00:00Z
+```
+
+Run the poller on a schedule (cron, every 5 min):
+
+```cron
+*/5 * * * * GITHUB_TOKEN=... beacon --db /var/lib/beacon/beacon.db poll --repo owner/name >> /var/log/beacon.log 2>&1
+```
+
 ## Why "beacon"
 
 A beacon signals: it tells you something changed, and where to look.
