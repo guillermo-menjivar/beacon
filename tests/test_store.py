@@ -82,5 +82,48 @@ class StoreTest(unittest.TestCase):
             self.assertEqual([e.ref for e in s.all()], ["a"])
 
 
+class SearchTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._dir = tempfile.mkdtemp()
+        self.store = Store(os.path.join(self._dir, "beacon.db"))
+        self.store.upsert([
+            _evt("a", "2026-06-01T00:00:00Z", title="add pre_config injection to canary"),
+            _evt("b", "2026-06-02T00:00:00Z", title="bump deps", body="touches the canary deploy path"),
+            _evt("c", "2026-06-03T00:00:00Z", title="unrelated docs fix",
+                 changed_paths=["terraform/canary_runner/cloud-init.tmpl"]),
+            _evt("d", "2026-06-04T00:00:00Z", title="auth refactor", topics=["canary", "security"]),
+        ])
+
+    def tearDown(self) -> None:
+        self.store.close()
+
+    def test_matches_title_term(self) -> None:
+        self.assertEqual([e.ref for e in self.store.search("pre_config")], ["a"])
+
+    def test_matches_across_body_changed_paths_and_topics(self) -> None:
+        # "canary" appears in a's title, b's body, c's changed_paths, d's topics.
+        self.assertEqual(
+            {e.ref for e in self.store.search("canary")}, {"a", "b", "c", "d"}
+        )
+
+    def test_all_terms_must_match(self) -> None:
+        # only b has both "canary" and "deploy".
+        self.assertEqual([e.ref for e in self.store.search("canary deploy")], ["b"])
+
+    def test_results_are_newest_first_and_limited(self) -> None:
+        out = self.store.search("canary", limit=2)
+        self.assertEqual([e.ref for e in out], ["d", "c"])
+
+    def test_since_lower_bound_is_exclusive(self) -> None:
+        out = self.store.search("canary", since="2026-06-02T00:00:00Z")
+        self.assertEqual({e.ref for e in out}, {"c", "d"})
+
+    def test_empty_query_matches_everything(self) -> None:
+        self.assertEqual(len(self.store.search("")), 4)
+
+    def test_no_match_returns_empty(self) -> None:
+        self.assertEqual(self.store.search("nonexistentterm"), [])
+
+
 if __name__ == "__main__":
     unittest.main()

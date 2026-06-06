@@ -32,6 +32,12 @@ def _cmd_since(args: argparse.Namespace) -> None:
             print(f"{e.timestamp}  {e.ref}  {e.title}")
 
 
+def _cmd_search(args: argparse.Namespace) -> None:
+    with Store(args.db) as store:
+        for e in store.search(" ".join(args.query), since=args.since, limit=args.limit):
+            print(f"{e.timestamp}  {e.ref}  {e.title}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="beacon", description="A change feed for agents.")
     parser.add_argument("--db", default="beacon.db", help="path to the SQLite store")
@@ -49,6 +55,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_since = sub.add_parser("since", help="show events newer than a timestamp")
     p_since.add_argument("timestamp", help="ISO-8601 UTC, e.g. 2026-06-01T00:00:00Z")
     p_since.set_defaults(func=_cmd_since)
+
+    p_search = sub.add_parser("search", help='keyword search ("anything new about X?")')
+    p_search.add_argument("query", nargs="+", help="terms; an event must match all of them")
+    p_search.add_argument("--since", default=None, help="only events newer than this ISO-8601 timestamp")
+    p_search.add_argument("--limit", type=int, default=20)
+    p_search.set_defaults(func=_cmd_search)
 
     return parser
 
