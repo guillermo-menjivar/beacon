@@ -94,6 +94,39 @@ class Store:
         cur = self._conn.execute("SELECT * FROM events ORDER BY timestamp ASC")
         return [self._row_to_event(r) for r in cur.fetchall()]
 
+    def search(self, query: str, since: str | None = None, limit: int = 20) -> list[Event]:
+        """Keyword search — the *pull* side of the feed ("anything new about X?").
+
+        Splits ``query`` into whitespace-separated terms and returns events where
+        EVERY term appears (case-insensitive substring) in any of the text
+        fields — title, body, source, changed_paths, topics — newest first. An
+        empty query matches everything (acts like ``recent``). ``since`` is an
+        optional ISO-8601 lower bound (strict ``>``).
+
+        This is deliberately keyword, not semantic: topic classification is a
+        deferred seam, so for v1 "about X" means "the word X shows up". The
+        match spans changed_paths/topics too, so a path or topic fragment hits.
+        """
+        clauses: list[str] = []
+        params: list[object] = []
+        for term in query.split():
+            like = f"%{term}%"
+            clauses.append(
+                "(title LIKE ? OR body LIKE ? OR source LIKE ? "
+                "OR changed_paths LIKE ? OR topics LIKE ?)"
+            )
+            params.extend([like, like, like, like, like])
+        if since:
+            clauses.append("timestamp > ?")
+            params.append(since)
+        where = " AND ".join(clauses) if clauses else "1=1"
+        params.append(limit)
+        cur = self._conn.execute(
+            f"SELECT * FROM events WHERE {where} ORDER BY timestamp DESC LIMIT ?",
+            params,
+        )
+        return [self._row_to_event(r) for r in cur.fetchall()]
+
     def high_water_mark(self) -> str | None:
         """The latest event timestamp in the store, or ``None`` if empty.
 

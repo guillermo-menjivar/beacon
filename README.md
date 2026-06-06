@@ -82,6 +82,11 @@ GITHUB_TOKEN=... beacon --db beacon.db poll --repo owner/name
 # Inspect the feed:
 beacon --db beacon.db recent --limit 20
 beacon --db beacon.db since 2026-06-01T00:00:00Z
+
+# Pull — ask "anything new about X?" (keyword search across title, body,
+# source, changed paths, and topics; an event must match every term):
+beacon --db beacon.db search canary deploy
+beacon --db beacon.db search pre_config --since 2026-06-01T00:00:00Z
 ```
 
 Run the poller on a schedule (cron, every 5 min):
